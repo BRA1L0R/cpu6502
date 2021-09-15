@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::Add};
+use std::fmt::Display;
 
 const STACK_OFFSET: u16 = 0x100;
 
@@ -23,6 +23,7 @@ enum Addressing {
     IndirectY(u8),
 }
 
+#[derive(Debug)]
 enum InstructionType {
     ADC, //     add with carry
     AND, // and (with accumulator)
@@ -87,12 +88,6 @@ struct Instruction {
     addressing: Addressing,
 }
 
-// macro_rules! opcode_match {
-//     ($opcode:expr, $type:tt, $addressing:tt) => {
-//         $opcode => (InstructionType::$type, Addressing::$addressing(0))
-//     };
-// }
-
 macro_rules! opcode_match {
     ($opcode: expr $(, $type:tt => {$(($matchcode:expr, $addressing:tt),)*} )* ; $($impltype:tt => $implcode:expr,)*) => {
         match $opcode {
@@ -111,7 +106,7 @@ macro_rules! opcode_match {
 }
 
 impl Instruction {
-    fn read_instruction(opcode: u8, mut read_extra: impl FnMut() -> u8) -> Instruction {
+    fn read_instruction(opcode: u8, mut read_byte: impl FnMut() -> u8) -> Instruction {
         let mut instr = opcode_match! {
             opcode,
 
@@ -127,6 +122,10 @@ impl Instruction {
                 (0xb9, AbsoluteY),
                 (0xa1, IndirectX),
                 (0xb1, IndirectY),
+            },
+            JMP => {
+                (0x4C, Absolute),
+                (0x6C, Indirect),
             },
             STA => {
                 (0x85, Zeropage),
@@ -170,12 +169,12 @@ impl Instruction {
             | Addressing::Zeropage(x)
             | Addressing::ZeropageX(x)
             | Addressing::IndirectX(x)
-            | Addressing::IndirectY(x) => *x = read_extra(),
+            | Addressing::IndirectY(x) => *x = read_byte(),
 
             Addressing::Indirect(x)
             | Addressing::Absolute(x)
             | Addressing::AbsoluteX(x)
-            | Addressing::AbsoluteY(x) => *x = ((read_extra() as u16) << 8) + read_extra() as u16,
+            | Addressing::AbsoluteY(x) => *x = (read_byte() as u16) + ((read_byte() as u16) << 8),
 
             _ => (),
         }
@@ -201,6 +200,13 @@ impl Memory {
             .for_each(|(mem, prog)| *mem = *prog);
 
         Memory { memory }
+    }
+
+    fn get_word(&self, offset: u16) -> u16 {
+        let hh = self.get(offset);
+        let ll = self.get(offset + 1);
+
+        ((hh as u16) << 8) + ll as u16
     }
 
     fn get(&self, addr: u16) -> u8 {
@@ -238,7 +244,6 @@ impl Display for Cpu {
             "A: 0x{:X?} X: 0x{:X?} Y: 0x{:X?} ",
             self.accumulator, self.x_register, self.y_register
         )?;
-        //writeln!(f, "-------------")?;
 
         Ok(())
     }
@@ -270,18 +275,14 @@ impl Cpu {
         }
     }
 
-    fn read_address(&mut self, offset: u16) -> u16 {
-        let hh = self.memory.get(offset);
-        let ll = self.memory.get(offset + 1);
-
-        ((hh as u16) << 8) + ll as u16
+    fn read_byte(&mut self) -> u8 {
+        self.program_counter += 1;
+        self.memory.get(self.program_counter - 1)
     }
 
-    fn read_byte(&mut self) -> u8 {
-        let ret = self.memory.get(self.program_counter);
-        self.program_counter += 1;
-
-        ret
+    fn read_word(&mut self) -> u16 {
+        self.program_counter += 2;
+        self.memory.get_word(self.program_counter - 2)
     }
 
     fn read_instruction(&mut self) -> Instruction {
@@ -303,9 +304,11 @@ impl Cpu {
             Addressing::Absolute(addr) => addr,
             Addressing::AbsoluteX(addr) => addr + self.x_register as u16,
             Addressing::AbsoluteY(addr) => addr + self.y_register as u16,
-            Addressing::Indirect(addr) => addr,
-            Addressing::IndirectX(addr) => self.indirect(addr, self.x_register, 0),
-            Addressing::IndirectY(addr) => self.indirect(addr, 0, self.y_register),
+            Addressing::Indirect(addr) => self.memory.get_word(addr),
+            Addressing::IndirectX(addr) => self.memory.get_word((addr + self.x_register) as u16),
+            Addressing::IndirectY(addr) => {
+                self.memory.get_word(addr as u16) + self.y_register as u16
+            }
             _ => 0,
         }
     }
@@ -319,7 +322,7 @@ impl Cpu {
     }
 
     fn run(&mut self) -> ! {
-        let rst_vector = self.read_address(0xFFFC);
+        let rst_vector = self.memory.get_word(0xFFFC);
         self.program_counter = rst_vector;
 
         loop {
@@ -336,7 +339,10 @@ impl Cpu {
                 }
                 InstructionType::PHA => self.stack_push(self.accumulator),
                 InstructionType::PLA => self.accumulator = self.stack_pop(),
-                _ => todo!(),
+                InstructionType::JMP => {
+                    self.program_counter = self.address_addressing(instruction.addressing)
+                }
+                inst => panic!("instruction [{:?}] not yet implemented", inst),
             }
 
             println!("{}", self);

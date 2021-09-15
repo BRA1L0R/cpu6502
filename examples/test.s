@@ -1,13 +1,5 @@
-    .byte $00
-    ; padding
+start   lda #$FC
+        sta $ABCD
+repeat  pha
+        jmp (repeat)
 
-    .org $3000
-start:
-    lda #$FC
-    pha
-    lda #$BC
-    pla
-
-    .org $fffc
-reset:
-    .word $0030
