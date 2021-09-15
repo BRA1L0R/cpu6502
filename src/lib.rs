@@ -94,16 +94,20 @@ struct Instruction {
 // }
 
 macro_rules! opcode_match {
-    ($opcode: expr $(, $type:tt => {$(($matchcode:expr, $addressing:tt),)*} )*) => {
+    ($opcode: expr $(, $type:tt => {$(($matchcode:expr, $addressing:tt),)*} )* ; $($impltype:tt => $implcode:expr,)*) => {
         match $opcode {
             $(
                 $(
                     $matchcode => (InstructionType::$type, Addressing::$addressing(0)),
                 )*
             )*
+            $(
+                $implcode => (InstructionType::$impltype, Addressing::Implied),
+            )*
             _ => todo!(),
         }
     };
+
 }
 
 impl Instruction {
@@ -124,7 +128,6 @@ impl Instruction {
                 (0xa1, IndirectX),
                 (0xb1, IndirectY),
             },
-
             STA => {
                 (0x85, Zeropage),
                 (0x95, ZeropageX),
@@ -133,8 +136,32 @@ impl Instruction {
                 (0x99, AbsoluteY),
                 (0x81, IndirectX),
                 (0x91, IndirectY),
-            }
+            };
 
+            NOP => 0x01,
+            PLA => 0x68,
+            BRK => 0x00,
+            CLC => 0x18,
+            CLD => 0xD8,
+            CLI => 0x58,
+            CLV => 0xB8,
+            DEX => 0xCA,
+            DEY => 0x88,
+            INX => 0xE8,
+            INY => 0xC8,
+            PHA => 0x48,
+            PHP => 0x08,
+            PLP => 0x28,
+            RTI => 0x40,
+            RTS => 0x60,
+            SEC => 0x38,
+            SED => 0xF8,
+            SEI => 0x78,
+            TAX => 0xAA,
+            TAY => 0xA8,
+            TSX => 0xBA,
+            TXA => 0x8A,
+            TXS => 0x9A,
         }; // turi gay
 
         match &mut instr.1 {
@@ -219,15 +246,13 @@ impl Display for Cpu {
 
 impl Cpu {
     fn stack_push(&mut self, x: u8) {
+        self.memory.set(STACK_OFFSET + self.stack_pointer as u16, x);
         self.stack_pointer -= 1;
-        self.memory.set(STACK_OFFSET + self.stack_pointer as u16, x)
     }
 
     fn stack_pop(&mut self) -> u8 {
         self.stack_pointer += 1;
-
-        self.memory
-            .get(STACK_OFFSET + (self.stack_pointer - 1) as u16)
+        self.memory.get(STACK_OFFSET + (self.stack_pointer) as u16)
     }
 
     fn load(program: &[u8]) -> Cpu {
@@ -243,6 +268,13 @@ impl Cpu {
             stack_pointer: 0,
             processor_status: 0,
         }
+    }
+
+    fn read_address(&mut self, offset: u16) -> u16 {
+        let hh = self.memory.get(offset);
+        let ll = self.memory.get(offset + 1);
+
+        ((hh as u16) << 8) + ll as u16
     }
 
     fn read_byte(&mut self) -> u8 {
@@ -287,24 +319,27 @@ impl Cpu {
     }
 
     fn run(&mut self) -> ! {
+        let rst_vector = self.read_address(0xFFFC);
+        self.program_counter = rst_vector;
+
         loop {
             let instruction = self.read_instruction();
-
-            println!("{}", self);
 
             match instruction.instruction_type {
                 InstructionType::STA => {
                     let addr = self.address_addressing(instruction.addressing);
                     self.memory.set(addr, self.accumulator)
                 }
-                InstructionType::LDA => match instruction.addressing {
-                    Addressing::Immediate(x) => self.accumulator = x,
-                    _ => todo!(),
-                },
+                InstructionType::LDA => {
+                    let mem = self.load_addressing(instruction.addressing);
+                    self.accumulator = mem;
+                }
+                InstructionType::PHA => self.stack_push(self.accumulator),
+                InstructionType::PLA => self.accumulator = self.stack_pop(),
                 _ => todo!(),
             }
 
-            //println!("{}", self.memory.get(0xFF))
+            println!("{}", self);
         }
     }
 }
