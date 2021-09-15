@@ -1,4 +1,4 @@
-use std::ops::Add;
+use std::{fmt::Display, ops::Add};
 
 const STACK_OFFSET: u16 = 0x100;
 
@@ -12,6 +12,7 @@ enum Addressing {
 
     Zeropage(u8),
     ZeropageX(u8),
+    ZeropageY(u8),
 
     Absolute(u16),
     AbsoluteX(u16),
@@ -112,7 +113,28 @@ impl Instruction {
 
             ADC => {
                 (0x69, Immediate),
+            },
+            LDA => {
+                (0xa9, Immediate),
+                (0xa5, Zeropage),
+                (0xb5, ZeropageX),
+                (0xad, Absolute),
+                (0xbd, AbsoluteX),
+                (0xb9, AbsoluteY),
+                (0xa1, IndirectX),
+                (0xb1, IndirectY),
+            },
+
+            STA => {
+                (0x85, Zeropage),
+                (0x95, ZeropageX),
+                (0x8d, Absolute),
+                (0x9d, AbsoluteX),
+                (0x99, AbsoluteY),
+                (0x81, IndirectX),
+                (0x91, IndirectY),
             }
+
         }; // turi gay
 
         match &mut instr.1 {
@@ -148,7 +170,7 @@ impl Memory {
 
         memory
             .iter_mut()
-            .zip(program.iter())
+            .zip(program)
             .for_each(|(mem, prog)| *mem = *prog);
 
         Memory { memory }
@@ -175,6 +197,24 @@ struct Cpu {
     stack_pointer: u8,
 
     processor_status: u8,
+}
+
+impl Display for Cpu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "PC: 0x{:X?} SP: 0x{:X?} --- ",
+            self.program_counter, self.stack_pointer
+        )?;
+        writeln!(
+            f,
+            "A: 0x{:X?} X: 0x{:X?} Y: 0x{:X?} ",
+            self.accumulator, self.x_register, self.y_register
+        )?;
+        //writeln!(f, "-------------")?;
+
+        Ok(())
+    }
 }
 
 impl Cpu {
@@ -206,8 +246,10 @@ impl Cpu {
     }
 
     fn read_byte(&mut self) -> u8 {
+        let ret = self.memory.get(self.program_counter);
         self.program_counter += 1;
-        self.memory.get(self.program_counter - 1)
+
+        ret
     }
 
     fn read_instruction(&mut self) -> Instruction {
@@ -216,22 +258,53 @@ impl Cpu {
         Instruction::read_instruction(opcode, || self.read_byte())
     }
 
+    fn indirect(&self, addr: u8, offset_x: u8, offset_y: u8) -> u16 {
+        self.memory.get(addr as u16 + offset_x as u16) as u16 + offset_y as u16
+    }
+
+    fn address_addressing(&self, addressing: Addressing) -> u16 {
+        match addressing {
+            Addressing::Relative(offset) => self.program_counter.wrapping_add(offset as u16),
+            Addressing::Zeropage(addr) => addr as u16, // TODO: these operations are all with carry
+            Addressing::ZeropageX(addr) => (addr + self.x_register) as u16,
+            Addressing::ZeropageY(addr) => (addr + self.y_register) as u16,
+            Addressing::Absolute(addr) => addr,
+            Addressing::AbsoluteX(addr) => addr + self.x_register as u16,
+            Addressing::AbsoluteY(addr) => addr + self.y_register as u16,
+            Addressing::Indirect(addr) => addr,
+            Addressing::IndirectX(addr) => self.indirect(addr, self.x_register, 0),
+            Addressing::IndirectY(addr) => self.indirect(addr, 0, self.y_register),
+            _ => 0,
+        }
+    }
+
+    fn load_addressing(&self, addressing: Addressing) -> u8 {
+        match addressing {
+            Addressing::Immediate(x) => x,
+            Addressing::Accumulator => self.accumulator,
+            addr => self.memory.get(self.address_addressing(addr)),
+        }
+    }
+
     fn run(&mut self) -> ! {
         loop {
             let instruction = self.read_instruction();
 
-            // match instruction.instruction_type {
-            //     InstructionType::STA => match instruction.addressing {
-            //         Addressing::Zeropage(addr) => self.memory.set(addr as u16, self.accumulator),
-            //         _ => todo!(),
-            //     },
-            //     InstructionType::LDA => match instruction.addressing {
-            //         Addressing::Immediate(x) => self.accumulator = x,
-            //         _ => todo!(),
-            //     },
-            // }
+            println!("{}", self);
 
-            println!("{}", self.memory.get(0xFF))
+            match instruction.instruction_type {
+                InstructionType::STA => {
+                    let addr = self.address_addressing(instruction.addressing);
+                    self.memory.set(addr, self.accumulator)
+                }
+                InstructionType::LDA => match instruction.addressing {
+                    Addressing::Immediate(x) => self.accumulator = x,
+                    _ => todo!(),
+                },
+                _ => todo!(),
+            }
+
+            //println!("{}", self.memory.get(0xFF))
         }
     }
 }
