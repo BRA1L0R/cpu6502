@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 const STACK_OFFSET: u16 = 0x100;
 
+#[derive(Debug)]
 enum Addressing {
     Accumulator,
     Implied,
@@ -89,16 +90,30 @@ struct Instruction {
 }
 
 macro_rules! opcode_match {
-    ($opcode: expr $(, $type:tt => {$(($matchcode:expr, $addressing:tt),)*} )* ; $($impltype:tt => $implcode:expr,)*) => {
+    ($opcode: expr
+        $(, $type:tt => {
+            $(($matchcode:expr, $addressing:tt)),*
+            $(; $(($optcode:expr, $optaddr:tt)),*)? })*
+        $(; $($impltype:tt => $implcode:expr),*)?) =>
+    {
         match $opcode {
             $(
                 $(
                     $matchcode => (InstructionType::$type, Addressing::$addressing(0)),
+
                 )*
+                $(
+                    $(
+                        $optcode => (InstructionType::$type, Addressing::$optaddr),
+                    )*
+                )?
             )*
             $(
-                $implcode => (InstructionType::$impltype, Addressing::Implied),
-            )*
+                $(
+                    $implcode => (InstructionType::$impltype, Addressing::Implied),
+                )*
+            )?
+
             _ => todo!(),
         }
     };
@@ -112,6 +127,23 @@ impl Instruction {
 
             ADC => {
                 (0x69, Immediate),
+                (0x65, Zeropage),
+                (0x75, ZeropageX),
+                (0x6D, Absolute),
+                (0x7D, AbsoluteX),
+                (0x79, AbsoluteY),
+                (0x61, IndirectX),
+                (0x71, IndirectY)
+            },
+            AND => {
+                (0x29, Immediate),
+                (0x25, Zeropage),
+                (0x35, ZeropageX),
+                (0x2D, Absolute),
+                (0x3D, AbsoluteX),
+                (0x39, AbsoluteY),
+                (0x21, IndirectX),
+                (0x31, IndirectY)
             },
             LDA => {
                 (0xa9, Immediate),
@@ -121,11 +153,13 @@ impl Instruction {
                 (0xbd, AbsoluteX),
                 (0xb9, AbsoluteY),
                 (0xa1, IndirectX),
-                (0xb1, IndirectY),
+                (0xb1, IndirectY)
             },
             JMP => {
+
                 (0x4C, Absolute),
-                (0x6C, Indirect),
+                (0x6C, Indirect)
+
             },
             STA => {
                 (0x85, Zeropage),
@@ -134,7 +168,7 @@ impl Instruction {
                 (0x9d, AbsoluteX),
                 (0x99, AbsoluteY),
                 (0x81, IndirectX),
-                (0x91, IndirectY),
+                (0x91, IndirectY)
             };
 
             NOP => 0x01,
@@ -160,8 +194,8 @@ impl Instruction {
             TAY => 0xA8,
             TSX => 0xBA,
             TXA => 0x8A,
-            TXS => 0x9A,
-        }; // turi gay
+            TXS => 0x9A
+        };
 
         match &mut instr.1 {
             Addressing::Relative(x)
@@ -174,7 +208,9 @@ impl Instruction {
             Addressing::Indirect(x)
             | Addressing::Absolute(x)
             | Addressing::AbsoluteX(x)
-            | Addressing::AbsoluteY(x) => *x = (read_byte() as u16) + ((read_byte() as u16) << 8),
+            | Addressing::AbsoluteY(x) => {
+                *x = (read_byte() as u16) + ((read_byte() as u16) << 8);
+            }
 
             _ => (),
         }
@@ -191,11 +227,12 @@ struct Memory {
 }
 
 impl Memory {
-    fn load(program: &[u8]) -> Memory {
+    fn load_program(offset: u16, program: &[u8]) -> Memory {
         let mut memory = [0u8; 65535];
 
         memory
             .iter_mut()
+            .skip(offset as usize)
             .zip(program)
             .for_each(|(mem, prog)| *mem = *prog);
 
@@ -211,6 +248,11 @@ impl Memory {
 
     fn get(&self, addr: u16) -> u8 {
         self.memory[addr as usize]
+    }
+
+    fn set_word(&mut self, offset: u16, x: u16) {
+        self.memory[offset as usize] = (x >> 8) as u8;
+        self.memory[(offset + 1) as usize] = x as u8;
     }
 
     fn set(&mut self, addr: u16, x: u8) {
@@ -260,9 +302,7 @@ impl Cpu {
         self.memory.get(STACK_OFFSET + (self.stack_pointer) as u16)
     }
 
-    fn load(program: &[u8]) -> Cpu {
-        let memory = Memory::load(program);
-
+    fn load_memory(memory: Memory) -> Cpu {
         Cpu {
             memory,
 
@@ -280,19 +320,10 @@ impl Cpu {
         self.memory.get(self.program_counter - 1)
     }
 
-    fn read_word(&mut self) -> u16 {
-        self.program_counter += 2;
-        self.memory.get_word(self.program_counter - 2)
-    }
-
     fn read_instruction(&mut self) -> Instruction {
         let opcode = self.read_byte();
 
         Instruction::read_instruction(opcode, || self.read_byte())
-    }
-
-    fn indirect(&self, addr: u8, offset_x: u8, offset_y: u8) -> u16 {
-        self.memory.get(addr as u16 + offset_x as u16) as u16 + offset_y as u16
     }
 
     fn address_addressing(&self, addressing: Addressing) -> u16 {
@@ -323,6 +354,8 @@ impl Cpu {
 
     fn run(&mut self) -> ! {
         let rst_vector = self.memory.get_word(0xFFFC);
+        println!("reset vector {}", rst_vector);
+
         self.program_counter = rst_vector;
 
         loop {
@@ -353,7 +386,13 @@ impl Cpu {
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     let program = std::fs::read(args.next().expect("program file path"))?;
+    let offset = args
+        .next()
+        .map_or(Ok(0), |off| u16::from_str_radix(&off, 16))?;
 
-    let mut cpu = Cpu::load(&program);
+    let mut memory = Memory::load_program(offset, &program);
+    memory.set_word(0xFFFC, offset);
+
+    let mut cpu = Cpu::load_memory(memory);
     cpu.run();
 }
