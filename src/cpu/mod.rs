@@ -1,16 +1,16 @@
-use std::{fmt::Display, rc::Rc};
-
 const STACK_OFFSET: u16 = 0x100;
-
-use crate::cpu::instruction::InstructionType;
 
 use self::{
     instruction::{Addressing, Instruction},
     memory::Memory,
+    status::ProcessorStatus,
 };
+use crate::cpu::instruction::InstructionType;
+use std::fmt::Display;
 
 mod instruction;
 pub mod memory;
+mod status;
 
 pub struct Cpu {
     pub memory: Memory,
@@ -23,7 +23,7 @@ pub struct Cpu {
 
     stack_pointer: u8,
 
-    processor_status: u8,
+    processor_status: ProcessorStatus,
 }
 
 impl Display for Cpu {
@@ -45,15 +45,17 @@ impl Display for Cpu {
 
 impl Cpu {
     pub fn load_memory(memory: Memory) -> Cpu {
+        let rst_vector = memory.get_word(0xFFFC);
+
         Cpu {
             memory,
 
-            program_counter: 0,
+            program_counter: rst_vector,
             accumulator: 0,
             x_register: 0,
             y_register: 0,
             stack_pointer: 0,
-            processor_status: 0,
+            processor_status: Default::default(),
         }
     }
 
@@ -104,33 +106,26 @@ impl Cpu {
         }
     }
 
-    pub fn run(&mut self) -> ! {
-        let rst_vector = self.memory.get_word(0xFFFC);
-        println!("reset vector {}", rst_vector);
+    pub fn tick(&mut self) {
+        let instruction = self.read_instruction();
 
-        self.program_counter = rst_vector;
-
-        loop {
-            let instruction = self.read_instruction();
-
-            match instruction.instruction_type {
-                InstructionType::STA => {
-                    let addr = self.address_addressing(instruction.addressing);
-                    self.memory.set(addr, self.accumulator)
-                }
-                InstructionType::LDA => {
-                    let mem = self.load_addressing(instruction.addressing);
-                    self.accumulator = mem;
-                }
-                InstructionType::PHA => self.stack_push(self.accumulator),
-                InstructionType::PLA => self.accumulator = self.stack_pop(),
-                InstructionType::JMP => {
-                    self.program_counter = self.address_addressing(instruction.addressing)
-                }
-                inst => panic!("instruction [{:?}] not yet implemented", inst),
+        match instruction.instruction_type {
+            InstructionType::STA => {
+                let addr = self.address_addressing(instruction.addressing);
+                self.memory.set(addr, self.accumulator)
             }
-
-            println!("{}", self);
+            InstructionType::LDA => {
+                let mem = self.load_addressing(instruction.addressing);
+                self.accumulator = mem;
+            }
+            InstructionType::PHA => self.stack_push(self.accumulator),
+            InstructionType::PLA => self.accumulator = self.stack_pop(),
+            InstructionType::JMP => {
+                self.program_counter = self.address_addressing(instruction.addressing)
+            }
+            inst => panic!("instruction [{:?}] not yet implemented", inst),
         }
+
+        println!("{}", self);
     }
 }

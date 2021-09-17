@@ -16,5 +16,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     memory.set_word(0xFFFC, offset);
 
     let mut cpu = Cpu::load_memory(memory);
-    cpu.run();
+    loop {
+        cpu.tick();
+    }
 }
