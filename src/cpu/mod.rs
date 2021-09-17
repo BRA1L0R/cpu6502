@@ -11,6 +11,7 @@ use std::fmt::Display;
 mod instruction;
 pub mod memory;
 mod status;
+mod tick;
 
 pub struct Cpu {
     pub memory: Memory,
@@ -104,28 +105,5 @@ impl Cpu {
             Addressing::Accumulator => self.accumulator,
             addr => self.memory.get(self.address_addressing(addr)),
         }
-    }
-
-    pub fn tick(&mut self) {
-        let instruction = self.read_instruction();
-
-        match instruction.instruction_type {
-            InstructionType::STA => {
-                let addr = self.address_addressing(instruction.addressing);
-                self.memory.set(addr, self.accumulator)
-            }
-            InstructionType::LDA => {
-                let mem = self.load_addressing(instruction.addressing);
-                self.accumulator = mem;
-            }
-            InstructionType::PHA => self.stack_push(self.accumulator),
-            InstructionType::PLA => self.accumulator = self.stack_pop(),
-            InstructionType::JMP => {
-                self.program_counter = self.address_addressing(instruction.addressing)
-            }
-            inst => panic!("instruction [{:?}] not yet implemented", inst),
-        }
-
-        println!("{}", self);
     }
 }
