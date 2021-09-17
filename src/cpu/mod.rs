@@ -13,7 +13,7 @@ mod instruction;
 pub mod memory;
 
 pub struct Cpu {
-    memory: Memory,
+    pub memory: Memory,
 
     program_counter: u16,
 

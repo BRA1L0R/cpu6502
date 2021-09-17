@@ -1,19 +1,14 @@
-use std::cell::RefCell;
-
 pub struct Memory {
-    memory: RefCell<[u8; 65535]>,
+    memory: [u8; 65535],
 }
 
 impl Memory {
     pub fn new() -> Self {
-        Self {
-            memory: RefCell::new([0; 65535]),
-        }
+        Self { memory: [0; 65535] }
     }
 
     pub fn load_program(&mut self, offset: u16, program: &[u8]) {
         self.memory
-            .borrow_mut()
             .iter_mut()
             .skip(offset as usize)
             .zip(program)
@@ -28,7 +23,7 @@ impl Memory {
     }
 
     pub fn get(&self, addr: u16) -> u8 {
-        self.memory.borrow()[addr as usize]
+        self.memory[addr as usize]
     }
 
     pub fn set_word(&mut self, offset: u16, x: u16) {
@@ -37,6 +32,6 @@ impl Memory {
     }
 
     pub fn set(&mut self, addr: u16, x: u8) {
-        self.memory.borrow_mut()[addr as usize] = x
+        self.memory[addr as usize] = x
     }
 }
