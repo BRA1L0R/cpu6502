@@ -3,9 +3,8 @@ const STACK_OFFSET: u16 = 0x100;
 use self::{
     instruction::{Addressing, Instruction},
     memory::Memory,
-    status::ProcessorStatus,
+    status::{ProcessorStatus, StatusFlag},
 };
-use crate::cpu::instruction::InstructionType;
 use std::fmt::Display;
 
 mod instruction;
@@ -80,6 +79,17 @@ impl Cpu {
 
         Instruction::read_instruction(opcode, || self.read_byte())
     }
+
+    // fn add_with_carry(&mut self, x: u8, y: u8) -> u8 {
+    //     let (res, carry1) = x.overflowing_add(y);
+    //     let (res, carry2) =
+    //         res.overflowing_add(self.processor_status.get_flag(StatusFlag::Carry) as u8);
+
+    //     self.processor_status
+    //         .set_flag(StatusFlag::Carry, carry1 || carry2);
+
+    //     res
+    // }
 
     fn address_addressing(&self, addressing: Addressing) -> u16 {
         match addressing {
