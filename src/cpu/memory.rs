@@ -26,6 +26,10 @@ impl Memory {
         self.memory[addr as usize]
     }
 
+    pub fn ref_mut(&mut self, addr: u16) -> &mut u8 {
+        &mut self.memory[addr as usize]
+    }
+
     pub fn set_word(&mut self, offset: u16, x: u16) {
         self.set(offset, (x >> 8) as u8);
         self.set(offset + 1, x as u8);

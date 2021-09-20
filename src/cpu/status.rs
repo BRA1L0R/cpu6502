@@ -9,7 +9,7 @@ pub enum StatusFlag {
 }
 
 #[derive(Default)]
-pub struct ProcessorStatus(u8);
+pub struct ProcessorStatus(pub u8);
 
 impl ProcessorStatus {
     pub fn set_flag(&mut self, flag: StatusFlag, set: bool) {

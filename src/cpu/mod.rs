@@ -64,9 +64,21 @@ impl Cpu {
         self.stack_pointer -= 1;
     }
 
+    fn stack_push_word(&mut self, x: u16) {
+        self.memory
+            .set_word(STACK_OFFSET + self.stack_pointer as u16 + 1, x);
+        self.stack_pointer -= 2;
+    }
+
     fn stack_pop(&mut self) -> u8 {
         self.stack_pointer += 1;
         self.memory.get(STACK_OFFSET + (self.stack_pointer) as u16)
+    }
+
+    fn stack_pop_word(&mut self) -> u16 {
+        self.stack_pointer += 2;
+        self.memory
+            .get_word(STACK_OFFSET + (self.stack_pointer) as u16 - 1)
     }
 
     fn read_byte(&mut self) -> u8 {
@@ -80,16 +92,35 @@ impl Cpu {
         Instruction::read_instruction(opcode, || self.read_byte())
     }
 
-    // fn add_with_carry(&mut self, x: u8, y: u8) -> u8 {
-    //     let (res, carry1) = x.overflowing_add(y);
-    //     let (res, carry2) =
-    //         res.overflowing_add(self.processor_status.get_flag(StatusFlag::Carry) as u8);
+    fn add_with_carry(&mut self, x: u8, y: u8) -> u8 {
+        let carry = self.processor_status.get_flag(StatusFlag::Carry);
 
-    //     self.processor_status
-    //         .set_flag(StatusFlag::Carry, carry1 || carry2);
+        let (res, part_carry) = x.overflowing_add(y);
+        let (res, res_carry) = res.overflowing_add(carry as u8);
 
-    //     res
-    // }
+        let res_carry = part_carry | res_carry;
+
+        self.processor_status.set_flag(StatusFlag::Carry, res_carry);
+        self.processor_status
+            .set_flag(StatusFlag::Overflow, carry ^ res_carry);
+
+        res
+    }
+
+    fn flag_value(&mut self, val: u8) {
+        self.processor_status
+            .set_flag(StatusFlag::Negative, (val & 0b1000_0000) != 0);
+        self.processor_status.set_flag(StatusFlag::Zero, val == 0);
+    }
+
+    fn cmp(&mut self, x: u8, y: Addressing) {
+        let y = self.load_addressing(y);
+
+        self.processor_status.set_flag(StatusFlag::Carry, x >= y);
+        self.processor_status.set_flag(StatusFlag::Zero, x == y);
+        self.processor_status
+            .set_flag(StatusFlag::Negative, ((x - y) & 0b1000_0000) != 0);
+    }
 
     fn address_addressing(&self, addressing: Addressing) -> u16 {
         match addressing {
@@ -114,6 +145,13 @@ impl Cpu {
             Addressing::Immediate(x) => x,
             Addressing::Accumulator => self.accumulator,
             addr => self.memory.get(self.address_addressing(addr)),
+        }
+    }
+
+    fn mut_addressing(&mut self, addressing: Addressing) -> &mut u8 {
+        match addressing {
+            Addressing::Accumulator => &mut self.accumulator,
+            addr => self.memory.ref_mut(self.address_addressing(addr)),
         }
     }
 }
