@@ -33,11 +33,12 @@ impl Display for Cpu {
             "PC: 0x{:X?} SP: 0x{:X?} --- ",
             self.program_counter, self.stack_pointer
         )?;
-        writeln!(
+        write!(
             f,
-            "A: 0x{:X?} X: 0x{:X?} Y: 0x{:X?} ",
+            "A: 0x{:X?} X: 0x{:X?} Y: 0x{:X?} --- ",
             self.accumulator, self.x_register, self.y_register
         )?;
+        writeln!(f, "ST: {:08b}", self.processor_status.0)?;
 
         Ok(())
     }
@@ -124,7 +125,10 @@ impl Cpu {
 
     fn address_addressing(&self, addressing: Addressing) -> u16 {
         match addressing {
-            Addressing::Relative(offset) => self.program_counter.wrapping_add(offset as u16),
+            Addressing::Relative(offset) => {
+                let offset = offset as i8;
+                self.program_counter + (offset as u16)
+            }
             Addressing::Zeropage(addr) => addr as u16, // TODO: these operations are all with carry
             Addressing::ZeropageX(addr) => (addr + self.x_register) as u16,
             Addressing::ZeropageY(addr) => (addr + self.y_register) as u16,

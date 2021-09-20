@@ -40,6 +40,12 @@ impl Cpu {
     pub fn tick(&mut self) {
         let instruction = self.read_instruction();
 
+        println!(
+            "Instr: {:?} --- Addr: {:02X?}",
+            instruction.instruction_type, instruction.addressing
+        );
+        println!("{}", self);
+
         let addr = instruction.addressing;
         match instruction.instruction_type {
             InstructionType::ADC => {
@@ -48,7 +54,7 @@ impl Cpu {
             }
             InstructionType::SBC => {
                 let mem = self.load_addressing(addr);
-                assign_flag!(self.accumulator = self.add_with_carry(mem, 255 - self.accumulator));
+                assign_flag!(self.accumulator = self.add_with_carry(self.accumulator, 255 - mem));
             }
             InstructionType::AND => assign_flag!(self.accumulator &= self.load_addressing(addr)),
             InstructionType::ASL => {
@@ -206,8 +212,6 @@ impl Cpu {
             InstructionType::TXS => assign_flag!(self.stack_pointer = self.x_register),
             InstructionType::TYA => assign_flag!(self.accumulator = self.y_register),
         }
-
-        println!("{}", self);
     }
 }
 

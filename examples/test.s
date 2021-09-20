@@ -1,3 +1,3 @@
-text = $0000
-jmp text
-
+LDA #0
+SEC
+SBC #255
