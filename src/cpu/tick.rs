@@ -86,9 +86,7 @@ impl Cpu {
 
             InstructionType::BRK => {
                 self.program_counter += 1;
-                println!("Old PC: {}", self.program_counter);
                 self.interrupt(VECTOR_NMI);
-                println!("New PC: {}", self.program_counter);
             }
 
             // InstructionType::CLC => clear_flag!(self, Carry),
