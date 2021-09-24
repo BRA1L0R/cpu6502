@@ -16,8 +16,8 @@ impl Memory {
     }
 
     pub fn get_word(&self, offset: u16) -> u16 {
-        let hh = self.get(offset);
-        let ll = self.get(offset + 1);
+        let ll = self.get(offset);
+        let hh = self.get(offset + 1);
 
         ((hh as u16) << 8) + ll as u16
     }

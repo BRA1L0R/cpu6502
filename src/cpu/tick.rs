@@ -1,8 +1,5 @@
 use super::Cpu;
-use crate::cpu::{
-    instruction::{Addressing, InstructionType},
-    status::StatusFlag,
-};
+use crate::cpu::{instruction::InstructionType, status::StatusFlag, VECTOR_NMI};
 
 macro_rules! flag_branch {
     ($self:ident, $addr:ident, $status:tt) => {
@@ -87,7 +84,12 @@ impl Cpu {
             InstructionType::BVC => flag_branch!(self, addr, !Overflow),
             InstructionType::BVS => flag_branch!(self, addr, Overflow),
 
-            InstructionType::BRK => todo!(),
+            InstructionType::BRK => {
+                self.program_counter += 1;
+                println!("Old PC: {}", self.program_counter);
+                self.interrupt(VECTOR_NMI);
+                println!("New PC: {}", self.program_counter);
+            }
 
             // InstructionType::CLC => clear_flag!(self, Carry),
             InstructionType::CLC => clear_flag!(self, Carry),
@@ -150,9 +152,16 @@ impl Cpu {
             InstructionType::ORA => assign_flag!(self.accumulator |= self.load_addressing(addr)),
 
             InstructionType::PHA => self.stack_push(self.accumulator),
-            InstructionType::PHP => self.stack_push(self.processor_status.0),
+            InstructionType::PHP => {
+                let mut ps = self.processor_status.clone();
+
+                ps.set_flag(StatusFlag::Ignored, true);
+                ps.set_flag(StatusFlag::Break, true);
+
+                self.stack_push(ps.0);
+            }
             InstructionType::PLA => assign_flag!(self.accumulator = self.stack_pop()),
-            InstructionType::PLP => self.processor_status.0 = self.stack_pop(),
+            InstructionType::PLP => self.pull_status(),
 
             InstructionType::ROL => {
                 let res = {
@@ -195,7 +204,11 @@ impl Cpu {
                 self.flag_value(res.0);
             }
 
-            InstructionType::RTI => todo!(),
+            InstructionType::RTI => {
+                self.pull_status();
+                self.program_counter = self.stack_pop_word();
+            }
+
             InstructionType::RTS => self.program_counter = self.stack_pop_word() + 1,
 
             InstructionType::SEC => set_flag!(self, Carry),

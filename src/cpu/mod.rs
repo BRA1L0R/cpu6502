@@ -1,4 +1,6 @@
-const STACK_OFFSET: u16 = 0x100;
+const VECTOR_NMI: u16 = 0xFFFA;
+const VECTOR_RESET: u16 = 0xFFFC;
+const VECTOR_IRQ: u16 = 0xFFFE;
 
 use self::{
     instruction::{Addressing, Instruction},
@@ -7,7 +9,9 @@ use self::{
 };
 use std::fmt::Display;
 
+mod addressing;
 mod instruction;
+mod memops;
 pub mod memory;
 mod status;
 mod tick;
@@ -46,7 +50,7 @@ impl Display for Cpu {
 
 impl Cpu {
     pub fn load_memory(memory: Memory) -> Cpu {
-        let rst_vector = memory.get_word(0xFFFC);
+        let rst_vector = memory.get_word(VECTOR_RESET);
 
         Cpu {
             memory,
@@ -58,33 +62,6 @@ impl Cpu {
             stack_pointer: 0,
             processor_status: Default::default(),
         }
-    }
-
-    fn stack_push(&mut self, x: u8) {
-        self.memory.set(STACK_OFFSET + self.stack_pointer as u16, x);
-        self.stack_pointer -= 1;
-    }
-
-    fn stack_push_word(&mut self, x: u16) {
-        self.memory
-            .set_word(STACK_OFFSET + self.stack_pointer as u16 + 1, x);
-        self.stack_pointer -= 2;
-    }
-
-    fn stack_pop(&mut self) -> u8 {
-        self.stack_pointer += 1;
-        self.memory.get(STACK_OFFSET + (self.stack_pointer) as u16)
-    }
-
-    fn stack_pop_word(&mut self) -> u16 {
-        self.stack_pointer += 2;
-        self.memory
-            .get_word(STACK_OFFSET + (self.stack_pointer) as u16 - 1)
-    }
-
-    fn read_byte(&mut self) -> u8 {
-        self.program_counter += 1;
-        self.memory.get(self.program_counter - 1)
     }
 
     fn read_instruction(&mut self) -> Instruction {
@@ -123,39 +100,28 @@ impl Cpu {
             .set_flag(StatusFlag::Negative, ((x - y) & 0b1000_0000) != 0);
     }
 
-    fn address_addressing(&self, addressing: Addressing) -> u16 {
-        match addressing {
-            Addressing::Relative(offset) => {
-                let offset = offset as i8;
-                self.program_counter + (offset as u16)
-            }
-            Addressing::Zeropage(addr) => addr as u16, // TODO: these operations are all with carry
-            Addressing::ZeropageX(addr) => (addr + self.x_register) as u16,
-            Addressing::ZeropageY(addr) => (addr + self.y_register) as u16,
-            Addressing::Absolute(addr) => addr,
-            Addressing::AbsoluteX(addr) => addr + self.x_register as u16,
-            Addressing::AbsoluteY(addr) => addr + self.y_register as u16,
-            Addressing::Indirect(addr) => self.memory.get_word(addr),
-            Addressing::IndirectX(addr) => self.memory.get_word((addr + self.x_register) as u16),
-            Addressing::IndirectY(addr) => {
-                self.memory.get_word(addr as u16) + self.y_register as u16
-            }
-            _ => 0,
-        }
+    fn interrupt(&mut self, vector: u16) {
+        let vector = self.memory.get_word(vector);
+
+        self.stack_push_word(self.program_counter);
+        self.stack_push(self.processor_status.0);
+
+        self.processor_status.set_flag(StatusFlag::Interrupt, true);
+        self.program_counter = vector;
     }
 
-    fn load_addressing(&self, addressing: Addressing) -> u8 {
-        match addressing {
-            Addressing::Immediate(x) => x,
-            Addressing::Accumulator => self.accumulator,
-            addr => self.memory.get(self.address_addressing(addr)),
-        }
-    }
+    fn pull_status(&mut self) {
+        let ps = self.stack_pop().into();
 
-    fn mut_addressing(&mut self, addressing: Addressing) -> &mut u8 {
-        match addressing {
-            Addressing::Accumulator => &mut self.accumulator,
-            addr => self.memory.ref_mut(self.address_addressing(addr)),
-        }
+        self.processor_status.set_flag(
+            StatusFlag::Ignored,
+            self.processor_status.get_flag(StatusFlag::Ignored),
+        );
+        self.processor_status.set_flag(
+            StatusFlag::Break,
+            self.processor_status.get_flag(StatusFlag::Break),
+        );
+
+        self.processor_status = ps;
     }
 }
