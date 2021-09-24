@@ -9,9 +9,9 @@ impl Cpu {
     }
 
     pub fn stack_push_word(&mut self, x: u16) {
+        self.stack_pointer -= 2;
         self.memory
             .set_word(STACK_OFFSET + self.stack_pointer as u16 + 1, x);
-        self.stack_pointer -= 2;
     }
 
     pub fn stack_pop(&mut self) -> u8 {

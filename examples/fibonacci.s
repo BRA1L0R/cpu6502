@@ -3,8 +3,8 @@
 ; test it in http://www.6502asm.com/beta/index.html
 ; the accumulator in the end will hold the Nth fibonacci number
 
-* = 1000
-
+* = 8000
+reset:
 LDX #$01; x = 1
 STX $00; stores x
 
@@ -24,3 +24,11 @@ loop: LDX $01; x = a
       STX $00; stores x
       DEY; y -= 1
       BNE loop; jumps back to loop if Z bit != 0 (y's decremention isn't zero yet)
+
+end
+
+* = $FFFC
+.dsb (*-end), 0
+* = $FFFC
+
+.word reset

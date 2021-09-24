@@ -106,6 +106,8 @@ impl Cpu {
         self.stack_push_word(self.program_counter);
         self.stack_push(self.processor_status.0);
 
+        println!("pushed {}", self.program_counter);
+
         self.processor_status.set_flag(StatusFlag::Interrupt, true);
         self.program_counter = vector;
     }

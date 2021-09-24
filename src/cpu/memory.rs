@@ -31,8 +31,8 @@ impl Memory {
     }
 
     pub fn set_word(&mut self, offset: u16, x: u16) {
-        self.set(offset, (x >> 8) as u8);
-        self.set(offset + 1, x as u8);
+        self.set(offset, x as u8);
+        self.set(offset + 1, (x >> 8) as u8);
     }
 
     pub fn set(&mut self, addr: u16, x: u8) {

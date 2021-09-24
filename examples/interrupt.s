@@ -1,5 +1,8 @@
-* = $0
+* = $8000
 reset
+    LDX #$ff
+    TXS
+
     brk
     brk
     jmp reset
