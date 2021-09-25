@@ -13,6 +13,7 @@ mod addressing;
 mod instruction;
 mod memops;
 pub mod memory;
+mod shifting;
 mod status;
 mod tick;
 

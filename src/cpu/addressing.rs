@@ -30,10 +30,17 @@ impl Cpu {
         }
     }
 
-    pub fn mut_addressing(&mut self, addressing: Addressing) -> &mut u8 {
+    pub fn write_addressing(&mut self, addressing: Addressing, x: u8) {
         match addressing {
-            Addressing::Accumulator => &mut self.accumulator,
-            addr => self.memory.ref_mut(self.address_addressing(addr)),
+            Addressing::Accumulator => self.accumulator = x,
+            addr => self.memory.set(self.address_addressing(addr), x),
         }
     }
+
+    // pub fn mut_addressing(&mut self, addressing: Addressing) -> &mut u8 {
+    //     match addressing {
+    //         Addressing::Accumulator => &mut self.accumulator,
+    //         addr => self.memory.ref_mut(self.address_addressing(addr)),
+    //     }
+    // }
 }

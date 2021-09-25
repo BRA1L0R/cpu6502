@@ -1,5 +1,5 @@
 use super::Cpu;
-use crate::cpu::{instruction::InstructionType, status::StatusFlag, VECTOR_NMI};
+use crate::cpu::{instruction::InstructionType, shifting, status::StatusFlag, VECTOR_NMI};
 
 macro_rules! flag_branch {
     ($self:ident, $addr:ident, $status:tt) => {
@@ -55,17 +55,11 @@ impl Cpu {
             }
             InstructionType::AND => assign_flag!(self.accumulator &= self.load_addressing(addr)),
             InstructionType::ASL => {
-                let res = {
-                    let val = self.mut_addressing(addr);
-                    let carry = (*val & 0b1000_0000) != 0;
-
-                    *val <<= 1;
-
-                    (*val, carry)
-                };
+                let res = shifting::rotate_left(false, self.load_addressing(addr));
 
                 self.processor_status.set_flag(StatusFlag::Carry, res.1);
                 self.flag_value(res.0);
+                self.write_addressing(addr, res.0);
             }
 
             InstructionType::BIT => {
@@ -132,20 +126,14 @@ impl Cpu {
             InstructionType::LDY => assign_flag!(self.y_register = self.load_addressing(addr)),
 
             InstructionType::LSR => {
-                let res = {
-                    let val = self.mut_addressing(addr);
-                    let carry = (*val & 0b0000_0001) != 0;
-
-                    *val >>= 1;
-
-                    (*val, carry)
-                };
+                let res = shifting::rotate_right(false, self.load_addressing(addr));
 
                 self.processor_status.set_flag(StatusFlag::Carry, res.1);
                 self.flag_value(res.0);
+                self.write_addressing(addr, res.0);
             }
 
-            InstructionType::STA => *self.mut_addressing(addr) = self.accumulator,
+            InstructionType::STA => self.write_addressing(addr, self.accumulator),
             InstructionType::NOP => (), // nop does nop-thing
             InstructionType::ORA => assign_flag!(self.accumulator |= self.load_addressing(addr)),
 
@@ -162,44 +150,24 @@ impl Cpu {
             InstructionType::PLP => self.pull_status(),
 
             InstructionType::ROL => {
-                let res = {
-                    let carry_in = self.processor_status.get_flag(StatusFlag::Carry);
-                    let mem = self.mut_addressing(addr);
-                    let carry_out = (*mem & 0b1000_0000) != 0;
-
-                    *mem <<= 1;
-
-                    if carry_in {
-                        *mem |= 0b0000_0001;
-                    } else {
-                        *mem &= 0b1111_1110;
-                    }
-
-                    (*mem, carry_out)
-                };
+                let res = shifting::rotate_left(
+                    self.processor_status.get_flag(StatusFlag::Carry),
+                    self.load_addressing(addr),
+                );
 
                 self.processor_status.set_flag(StatusFlag::Carry, res.1);
                 self.flag_value(res.0);
+                self.write_addressing(addr, res.0);
             }
             InstructionType::ROR => {
-                let res = {
-                    let carry_in = self.processor_status.get_flag(StatusFlag::Carry);
-                    let mem = self.mut_addressing(addr);
-                    let carry_out = (*mem & 0b0000_0001) != 0;
-
-                    *mem <<= 1;
-
-                    if carry_in {
-                        *mem |= 0b1000_0000;
-                    } else {
-                        *mem &= 0b0111_1111;
-                    }
-
-                    (*mem, carry_out)
-                };
+                let res = shifting::rotate_right(
+                    self.processor_status.get_flag(StatusFlag::Carry),
+                    self.load_addressing(addr),
+                );
 
                 self.processor_status.set_flag(StatusFlag::Carry, res.1);
                 self.flag_value(res.0);
+                self.write_addressing(addr, res.0);
             }
 
             InstructionType::RTI => {
@@ -213,8 +181,8 @@ impl Cpu {
             InstructionType::SED => set_flag!(self, Decimal),
             InstructionType::SEI => set_flag!(self, Interrupt),
 
-            InstructionType::STX => *self.mut_addressing(addr) = self.x_register,
-            InstructionType::STY => *self.mut_addressing(addr) = self.y_register,
+            InstructionType::STX => self.write_addressing(addr, self.x_register),
+            InstructionType::STY => self.write_addressing(addr, self.y_register),
 
             InstructionType::TAX => assign_flag!(self.x_register = self.accumulator),
             InstructionType::TAY => assign_flag!(self.y_register = self.accumulator),

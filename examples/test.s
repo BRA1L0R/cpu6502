@@ -1,3 +1,11 @@
-LDA #0
-SEC
-SBC #255
+* = $8000
+start:
+    LDA #1
+    LSR A
+end
+
+* = $FFFC
+.dsb (*-end), 0
+* = $FFFC
+
+.word start
