@@ -68,7 +68,13 @@ impl Cpu {
     fn read_instruction(&mut self) -> Instruction {
         let opcode = self.read_byte();
 
-        Instruction::read_instruction(opcode, || self.read_byte())
+        Instruction::read_instruction(opcode, || self.read_byte()).unwrap_or_else(|| {
+            println!(
+                "Cpu jam! Unknown OpCode {:02X}\n\nProcessor status:\n{}",
+                opcode, self
+            );
+            std::process::exit(1);
+        })
     }
 
     fn add_with_carry(&mut self, x: u8, y: u8) -> u8 {

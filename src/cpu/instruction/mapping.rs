@@ -11,29 +11,29 @@ macro_rules! opcode_match {
         match $opcode {
             $(
                 $(
-                    $matchcode => (InstructionType::$type, Addressing::$addressing(0)),
+                    $matchcode => Some((InstructionType::$type, Addressing::$addressing(0))),
 
                 )*
                 $(
                     $(
-                        $optcode => (InstructionType::$type, Addressing::$optaddr),
+                        $optcode => Some((InstructionType::$type, Addressing::$optaddr)),
                     )*
                 )?
             )*
             $(
                 $(
-                    $implcode => (InstructionType::$impltype, Addressing::Implied),
+                    $implcode => Some((InstructionType::$impltype, Addressing::Implied)),
                 )*
             )?
 
-            _ => panic!("OpCode not yet mapped [{:X}]", $opcode),
+            _ => None,
         }
     };
 
 }
 
 impl Instruction {
-    pub fn read_instruction(opcode: u8, mut read_byte: impl FnMut() -> u8) -> Instruction {
+    pub fn read_instruction(opcode: u8, mut read_byte: impl FnMut() -> u8) -> Option<Instruction> {
         let mut instr = opcode_match! {
             opcode,
 
@@ -252,7 +252,7 @@ impl Instruction {
             TXA => 0x8A,
             TXS => 0x9A,
             TYA => 0x98
-        };
+        }?;
 
         match &mut instr.1 {
             Addressing::Relative(x)
@@ -272,9 +272,9 @@ impl Instruction {
             _ => (),
         }
 
-        Instruction {
+        Some(Instruction {
             instruction_type: instr.0,
             addressing: instr.1,
-        }
+        })
     }
 }

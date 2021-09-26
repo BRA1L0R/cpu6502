@@ -37,12 +37,6 @@ impl Cpu {
     pub fn tick(&mut self) {
         let instruction = self.read_instruction();
 
-        println!(
-            "Instr: {:?} --- Addr: {:02X?}",
-            instruction.instruction_type, instruction.addressing
-        );
-        println!("{}", self);
-
         let addr = instruction.addressing;
         match instruction.instruction_type {
             InstructionType::ADC => {
