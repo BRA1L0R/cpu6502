@@ -49,7 +49,7 @@ Examples are built following `xa` assembler guidelines, and use its pseudo-opcod
 Compiling an example with `xa` is really straight-forward:
 
 ```
-xa example/fibonacci.s
+xa examples/fibonacci.s
 ```
 
 Then run it with the emulator binary:
