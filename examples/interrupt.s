@@ -1,16 +1,20 @@
 * = $8000
 reset
+    ; initialize the stack
     LDX #$ff
-    TXS
+    TXS 
 
+    ; break interrupt
     brk
-    brk
-    jmp reset
+    ; break reason
+    .byt $00
+
+    .byt $22
 
 break
     inx
     rti
-
+    
 end
 
 * = $FFFA

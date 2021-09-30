@@ -9,3 +9,4 @@ edition = "2018"
 overflow-checks = false
 
 [dependencies]
+clap = "2.33"

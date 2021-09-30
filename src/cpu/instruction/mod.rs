@@ -82,6 +82,7 @@ pub enum InstructionType {
     TYA, // transfer Y to accumulator
 }
 
+#[derive(Debug)]
 pub struct Instruction {
     pub instruction_type: InstructionType,
     pub addressing: Addressing,

@@ -34,8 +34,8 @@ macro_rules! assign_flag {
 }
 
 impl Cpu {
-    pub fn tick(&mut self) {
-        let instruction = self.read_instruction();
+    pub fn tick(&mut self) -> Result<crate::cpu::Instruction, Box<dyn std::error::Error>> {
+        let instruction = self.read_instruction()?;
 
         let addr = instruction.addressing;
         match instruction.instruction_type {
@@ -184,7 +184,9 @@ impl Cpu {
             InstructionType::TXA => assign_flag!(self.accumulator = self.x_register),
             InstructionType::TXS => assign_flag!(self.stack_pointer = self.x_register),
             InstructionType::TYA => assign_flag!(self.accumulator = self.y_register),
-        }
+        };
+
+        Ok(instruction)
     }
 }
 
