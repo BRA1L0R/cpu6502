@@ -3,6 +3,7 @@ const VECTOR_RESET: u16 = 0xFFFC;
 const VECTOR_IRQ: u16 = 0xFFFE;
 
 use self::{
+    error::CpuError,
     instruction::{Addressing, Instruction},
     memory::Memory,
     status::{ProcessorStatus, StatusFlag},
@@ -10,6 +11,7 @@ use self::{
 use std::fmt::Display;
 
 mod addressing;
+pub mod error;
 mod instruction;
 mod memops;
 pub mod memory;
@@ -49,21 +51,6 @@ impl Display for Cpu {
     }
 }
 
-#[derive(Debug)]
-enum InstructionDecodeError {
-    UnknownOpcode(u8),
-}
-
-impl Display for InstructionDecodeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::UnknownOpcode(opcode) => write!(f, "Unknown opcode: {:02X}", opcode),
-        }
-    }
-}
-
-impl std::error::Error for InstructionDecodeError {}
-
 impl Cpu {
     pub fn load_memory(memory: Memory) -> Cpu {
         let rst_vector = memory.get_word(VECTOR_RESET);
@@ -82,11 +69,11 @@ impl Cpu {
         }
     }
 
-    fn read_instruction(&mut self) -> Result<Instruction, InstructionDecodeError> {
+    fn read_instruction(&mut self) -> Result<Instruction, CpuError> {
         let opcode = self.read_byte();
 
         Instruction::read_instruction(opcode, || self.read_byte())
-            .ok_or(InstructionDecodeError::UnknownOpcode(opcode))
+            .ok_or(CpuError::UnknownOpcode(opcode))
     }
 
     fn add_with_carry(&mut self, x: u8, y: u8) -> u8 {

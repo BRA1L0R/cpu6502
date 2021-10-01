@@ -1,4 +1,4 @@
-use super::Cpu;
+use super::{Cpu, error::CpuError};
 use crate::cpu::{instruction::InstructionType, shifting, status::StatusFlag, VECTOR_NMI};
 
 macro_rules! flag_branch {
@@ -34,7 +34,7 @@ macro_rules! assign_flag {
 }
 
 impl Cpu {
-    pub fn tick(&mut self) -> Result<crate::cpu::Instruction, Box<dyn std::error::Error>> {
+    pub fn tick(&mut self) -> Result<crate::cpu::Instruction, CpuError> {
         let instruction = self.read_instruction()?;
 
         let addr = instruction.addressing;
