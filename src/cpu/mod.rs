@@ -7,7 +7,7 @@ use self::{
     memory::Memory,
     status::{ProcessorStatus, StatusFlag},
 };
-use std::{convert::TryInto, fmt::Display};
+use std::fmt::Display;
 
 mod addressing;
 mod instruction;
@@ -67,6 +67,8 @@ impl std::error::Error for InstructionDecodeError {}
 impl Cpu {
     pub fn load_memory(memory: Memory) -> Cpu {
         let rst_vector = memory.get_word(VECTOR_RESET);
+
+        println!("reset vector {}", rst_vector);
 
         Cpu {
             memory,
