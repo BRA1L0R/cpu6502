@@ -20,7 +20,7 @@ mod tick;
 pub struct Cpu {
     pub memory: Memory,
 
-    program_counter: u16,
+    pub program_counter: u16,
 
     accumulator: u8,
     x_register: u8,
