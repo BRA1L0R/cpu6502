@@ -10,27 +10,27 @@ use self::{
 };
 use std::fmt::Display;
 
-mod addressing;
+pub mod addressing;
 pub mod error;
-mod instruction;
-mod memops;
+pub mod instruction;
+pub mod memops;
 pub mod memory;
-mod shifting;
-mod status;
-mod tick;
+pub mod shifting;
+pub mod status;
+pub mod tick;
 
 pub struct Cpu {
     pub memory: Memory,
 
-    program_counter: u16,
+    pub program_counter: u16,
 
-    accumulator: u8,
-    x_register: u8,
-    y_register: u8,
+    pub accumulator: u8,
+    pub x_register: u8,
+    pub y_register: u8,
 
-    stack_pointer: u8,
+    pub stack_pointer: u8,
 
-    processor_status: ProcessorStatus,
+    pub processor_status: ProcessorStatus,
 }
 
 impl Display for Cpu {
