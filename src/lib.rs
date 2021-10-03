@@ -1,9 +1,7 @@
 use clap::{App, Arg};
 use cpu::{memory::Memory, Cpu};
 
-
 pub mod cpu;
-
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let matches = App::new("CPU6502")
