@@ -3,24 +3,24 @@ const VECTOR_RESET: u16 = 0xFFFC;
 const VECTOR_IRQ: u16 = 0xFFFE;
 
 use self::{
+    addressable_bus::DataBus,
     error::CpuError,
     instruction::{Addressing, Instruction},
-    memory::Memory,
     status::{ProcessorStatus, StatusFlag},
 };
 use std::fmt::Display;
 
+pub mod addressable_bus;
 pub mod addressing;
 pub mod error;
 pub mod instruction;
 pub mod memops;
-pub mod memory;
 pub mod shifting;
 pub mod status;
 pub mod tick;
 
-pub struct Cpu {
-    pub memory: Memory,
+pub struct Cpu<T: DataBus> {
+    pub bus: T,
 
     pub program_counter: u16,
 
@@ -33,7 +33,7 @@ pub struct Cpu {
     pub processor_status: ProcessorStatus,
 }
 
-impl Display for Cpu {
+impl<T: DataBus> Display for Cpu<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -51,14 +51,12 @@ impl Display for Cpu {
     }
 }
 
-impl Cpu {
-    pub fn load_memory(memory: Memory) -> Cpu {
+impl<T: DataBus> Cpu<T> {
+    pub fn load_memory(memory: T) -> Cpu<T> {
         let rst_vector = memory.get_word(VECTOR_RESET);
 
-        println!("reset vector {}", rst_vector);
-
         Cpu {
-            memory,
+            bus: memory,
 
             program_counter: rst_vector,
             accumulator: 0,
@@ -107,7 +105,7 @@ impl Cpu {
     }
 
     fn interrupt(&mut self, vector: u16) {
-        let vector = self.memory.get_word(vector);
+        let vector = self.bus.get_word(vector);
 
         self.stack_push_word(self.program_counter);
         self.stack_push(self.processor_status.0);
@@ -117,13 +115,13 @@ impl Cpu {
     }
 
     fn pull_status(&mut self) {
-        let ps = self.stack_pop().into();
+        let mut ps: ProcessorStatus = self.stack_pop().into();
 
-        self.processor_status.set_flag(
+        ps.set_flag(
             StatusFlag::Ignored,
             self.processor_status.get_flag(StatusFlag::Ignored),
         );
-        self.processor_status.set_flag(
+        ps.set_flag(
             StatusFlag::Break,
             self.processor_status.get_flag(StatusFlag::Break),
         );

@@ -1,4 +1,4 @@
-use super::{Cpu, error::CpuError};
+use super::{error::CpuError, addressable_bus::DataBus, Cpu};
 use crate::cpu::{instruction::InstructionType, shifting, status::StatusFlag, VECTOR_NMI};
 
 macro_rules! flag_branch {
@@ -33,7 +33,7 @@ macro_rules! assign_flag {
     }};
 }
 
-impl Cpu {
+impl<T: DataBus> Cpu<T> {
     pub fn tick(&mut self) -> Result<crate::cpu::Instruction, CpuError> {
         let instruction = self.read_instruction()?;
 
@@ -89,9 +89,9 @@ impl Cpu {
 
             InstructionType::DEC => {
                 let addr = self.address_addressing(addr);
-                let val = self.memory.get(addr) - 1;
+                let val = self.bus.get(addr) - 1;
 
-                self.memory.set(addr, val);
+                self.bus.set(addr, val);
                 self.flag_value(val);
             }
             InstructionType::DEX => assign_flag!(self.x_register -= 1),
@@ -101,9 +101,9 @@ impl Cpu {
 
             InstructionType::INC => {
                 let addr = self.address_addressing(addr);
-                let val = self.memory.get(addr) + 1;
+                let val = self.bus.get(addr) + 1;
 
-                self.memory.set(addr, val);
+                self.bus.set(addr, val);
                 self.flag_value(val);
             }
             InstructionType::INX => assign_flag!(self.x_register += 1),

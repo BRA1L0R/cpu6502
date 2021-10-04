@@ -1,6 +1,6 @@
-use super::{instruction::Addressing, Cpu};
+use super::{addressable_bus::DataBus, instruction::Addressing, Cpu};
 
-impl Cpu {
+impl<T: DataBus> Cpu<T> {
     pub fn address_addressing(&self, addressing: Addressing) -> u16 {
         match addressing {
             Addressing::Relative(offset) => {
@@ -13,11 +13,9 @@ impl Cpu {
             Addressing::Absolute(addr) => addr,
             Addressing::AbsoluteX(addr) => addr + self.x_register as u16,
             Addressing::AbsoluteY(addr) => addr + self.y_register as u16,
-            Addressing::Indirect(addr) => self.memory.get_word(addr),
-            Addressing::IndirectX(addr) => self.memory.get_word((addr + self.x_register) as u16),
-            Addressing::IndirectY(addr) => {
-                self.memory.get_word(addr as u16) + self.y_register as u16
-            }
+            Addressing::Indirect(addr) => self.bus.get_word(addr),
+            Addressing::IndirectX(addr) => self.bus.get_word((addr + self.x_register) as u16),
+            Addressing::IndirectY(addr) => self.bus.get_word(addr as u16) + self.y_register as u16,
             _ => 0,
         }
     }
@@ -26,21 +24,14 @@ impl Cpu {
         match addressing {
             Addressing::Immediate(x) => x,
             Addressing::Accumulator => self.accumulator,
-            addr => self.memory.get(self.address_addressing(addr)),
+            addr => self.bus.get(self.address_addressing(addr)),
         }
     }
 
     pub fn write_addressing(&mut self, addressing: Addressing, x: u8) {
         match addressing {
             Addressing::Accumulator => self.accumulator = x,
-            addr => self.memory.set(self.address_addressing(addr), x),
+            addr => self.bus.set(self.address_addressing(addr), x),
         }
     }
-
-    // pub fn mut_addressing(&mut self, addressing: Addressing) -> &mut u8 {
-    //     match addressing {
-    //         Addressing::Accumulator => &mut self.accumulator,
-    //         addr => self.memory.ref_mut(self.address_addressing(addr)),
-    //     }
-    // }
 }
