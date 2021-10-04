@@ -1,7 +1,8 @@
 use clap::{App, Arg};
-use cpu6502::cpu::{addressable_bus::DataBus, Cpu};
-
-mod stack_memory;
+use cpu6502::{
+    cpu::{addressable_bus::DataBus, Cpu},
+    stack_memory::StackMemory,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     run()
@@ -30,7 +31,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let offset = matches.value_of("offset").unwrap().trim_start_matches("0x");
     let offset = u16::from_str_radix(offset, 16)?;
 
-    let mut memory = stack_memory::StackMemory::new();
+    let mut memory = StackMemory::new();
     memory.load_data(offset, &program);
 
     let mut cpu = Cpu::load_memory(memory);

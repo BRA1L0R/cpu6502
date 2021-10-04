@@ -1,4 +1,6 @@
-use cpu6502::cpu::addressable_bus::DataBus;
+use crate::cpu::addressable_bus::DataBus;
+
+// use cpu6502::cpu::addressable_bus::DataBus;
 
 pub struct StackMemory {
     memory: [u8; 65535],
@@ -11,6 +13,12 @@ impl DataBus for StackMemory {
 
     fn set(&mut self, addr: u16, x: u8) {
         self.memory[addr as usize] = x
+    }
+}
+
+impl Default for StackMemory {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
